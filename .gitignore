@@ -3,3 +3,5 @@ node_modules
 results/
 src/config/participant.config.ts
 src/config/twilio.config.ts
+output/pins.json
+output/results.json

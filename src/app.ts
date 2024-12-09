@@ -1,35 +1,33 @@
 import { participantConfiguration } from './config/participant.config';
-import { twilioConfig } from './config/twilio.config';
 import { sanitizeParticipants } from './utils/sanitize-participants';
-import { TwilioClient } from './clients/twilio.client';
 import { isParticipantChainValid } from './utils/validate-participant-chain';
 import {
 	generateFamilyMapFromConfig,
 	generatePodsFromFamilyMap,
 	getAlignedParticipantsFromPods,
 } from './utils/transformers';
-import { sendMessageToParticipants } from './utils/send-message';
 import { alignPods } from './utils/align-pods';
-import { SmsTemplate } from './models/sms-template.model';
+import * as fs from 'fs';
+import { generatePins } from './utils/generate-pins';
 
-const twilioClient = new TwilioClient(
-	twilioConfig.sid,
-	twilioConfig.token,
-	twilioConfig.fromNumber,
-);
+(async function () {
+	const familyMap = generateFamilyMapFromConfig(participantConfiguration);
 
-const familyMap = generateFamilyMapFromConfig(participantConfiguration);
+	const pods = generatePodsFromFamilyMap(familyMap);
 
-const pods = generatePodsFromFamilyMap(familyMap);
+	const alignedPods = alignPods(pods);
 
-const alignedPods = alignPods(pods);
+	const alignedParticipants = getAlignedParticipantsFromPods(alignedPods);
 
-const alignedParticipants = getAlignedParticipantsFromPods(alignedPods);
+	const isValid = isParticipantChainValid(alignedParticipants);
 
-const isValid = isParticipantChainValid(alignedParticipants);
+	if (!isValid) throw new Error('Generated configuration was invalid.');
 
-console.log(sanitizeParticipants(alignedParticipants));
+	const result = sanitizeParticipants(alignedParticipants);
 
-console.log(isValid);
+	fs.writeFile('output/results.json', JSON.stringify(result), () => {});
 
-if (isValid) sendMessageToParticipants(twilioClient, alignedParticipants, SmsTemplate.Notification);
+	const pins = generatePins(result);
+
+	fs.writeFile('output/pins.json', JSON.stringify(pins), () => {});
+})();
